@@ -62,12 +62,20 @@ func dynamodbOnlineStoreFactory(serialized pc.SerializedConfig) (Provider, error
 }
 
 func NewDynamodbOnlineStore(options *pc.DynamodbConfig) (*dynamodbOnlineStore, error) {
-	config := &aws.Config{
-		Region:      aws.String(options.Region),
-		Credentials: credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, ""),
+	var dynamodbClient *dynamodb.DynamoDB
+	if options.AccessKey != "" && options.SecretKey != "" {
+		config := &aws.Config{
+			Region:      aws.String(options.Region),
+			Credentials: credentials.NewStaticCredentials(options.AccessKey, options.SecretKey, ""),
+		}
+		sess := session.Must(session.NewSession(config))
+		dynamodbClient = dynamodb.New(sess)
+
+	} else {
+		sess := session.Must(session.NewSession(&aws.Config{Region: aws.String(options.Region)}))
+		dynamodbClient = dynamodb.New(sess)
 	}
-	sess := session.Must(session.NewSession(config))
-	dynamodbClient := dynamodb.New(sess)
+
 	if err := CreateMetadataTable(dynamodbClient); err != nil {
 		return nil, fmt.Errorf("could not create metadata table: %v", err)
 	}
